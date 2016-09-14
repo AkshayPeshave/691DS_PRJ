@@ -1,0 +1,8 @@
+Housing Market Typology 2014 : https://data.baltimorecity.gov/Neighborhoods/2014-Housing-Market-Typology/bd6x-nxgg
+
+Housing Market Typology 2011 : 
+
+Vital Signs Codebook : https://data.baltimorecity.gov/Neighborhoods/BNIA-Vital-Signs-Codebook/ryvy-9zw6
+
+Crime & Safety (2010-2014) Shape : https://data.baltimorecity.gov/Neighborhoods/Crime-Safety-2010-2014-Shape/bywi-mtiu
+
