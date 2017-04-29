@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>
+		MyMap
+		</title>
+		<link rel="stylesheet" type="text/css" href="leafletJS/leaflet.css">
+		<script type="text/javascript" src="leafletJS/leaflet.js"></script>
+		<script src="data/countries.geojson"></script>
+		<script src="data/cluster2014.geojson"></script>
+		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKMcKR4SlDQ4UaSKNUxQad1NHcIMTY3n0&callback=initialize"
+    		async defer></script>
+		<style type="text/css">
+			#map { height: 600px;
+				width:600px;}
+		</style>
+		<script>
+			var map;
+			var geocoder;
+			function init_leafletJS(){
+				map = L.map('map').setView([43.8476, 18.3564], 20);
+
+				
+
+				var cluster2014Layer = L.geoJson(cluster2014, {
+					onEachFeature: function(feature, layer) {
+						layer.bindPopup(feature.properties['CSA2010']);
+
+						layer.on('mouseover', function(e) {
+							this.openPopup();
+						});
+						
+						layer.on('mouseout', function(e) {
+							this.closePopup();
+						});
+						
+						layer.on('click', function(e) {
+							alert('CSA2010 : '+feature.properties['CSA2010']);
+						});
+					}
+				}).addTo(map);
+				map.fitBounds(cluster2014Layer.getBounds());
+
+				// L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+				// 	attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+				// }).addTo(map);
+				// L.marker([51.5, -0.09]).addTo(map)
+				// .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
+				// .openPopup();
+			}
+
+			function initialize() {
+				geocoder = new google.maps.Geocoder();
+			}
+			function codeAddress() {
+				var address = document.getElementById('address').value;
+				geocoder.geocode( { 'address': address}, function(results, status) {
+					if (status == 'OK') {
+						drawProximityCircle(results[0].geometry.location, 5000);
+					} else {
+						alert('Geocode was not successful for the following reason: ' + status);
+					}
+				});
+			}
+
+			function drawProximityCircle(geoLoc, radius){
+				L.circle([geoLoc.lat(), geoLoc.lng()], radius).addTo(map);
+			}
+		</script>
+		
+	</head>
+	<body onload="init_leafletJS()">
+		<h1>My Map</h1>
+
+		<table>
+			<tr>
+				<td>
+					<div id="map"></div>
+				</td>
+				<td>
+					<div>
+						<input id="address" type="textbox" value="inner harbor">
+						<input type="button" value="Encode" onclick="codeAddress()">
+					</div>
+				</td>
+			</tr>
+
+		</table>
+
+		
+		
+		
+	</body>
+</html>
