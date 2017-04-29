@@ -6,12 +6,17 @@
 		<title>
 		MyMap
 		</title>
+		<script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+		<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+		<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
 		<link rel="stylesheet" type="text/css" href="leafletJS/leaflet.css">
 		<script type="text/javascript" src="leafletJS/leaflet.js"></script>
 		<script src="data/countries.geojson"></script>
 		<script src="data/cluster2014.geojson"></script>
-		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKMcKR4SlDQ4UaSKNUxQad1NHcIMTY3n0&callback=initialize"
-    		async defer></script>
+		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKMcKR4SlDQ4UaSKNUxQad1NHcIMTY3n0"
+    		async defer></script> 
+    		<!-- &callback=initialize -->
 		<style type="text/css">
 			#map { height: 600px;
 				width:600px;}
@@ -19,10 +24,10 @@
 		<script>
 			var map;
 			var geocoder;
+			var searchZone=null;
+
 			function init_leafletJS(){
 				map = L.map('map').setView([43.8476, 18.3564], 20);
-
-				
 
 				var cluster2014Layer = L.geoJson(cluster2014, {
 					onEachFeature: function(feature, layer) {
@@ -51,27 +56,62 @@
 				// .openPopup();
 			}
 
-			function initialize() {
+			function init_googlemaps() {
 				geocoder = new google.maps.Geocoder();
 			}
 			function codeAddress() {
 				var address = document.getElementById('address').value;
 				geocoder.geocode( { 'address': address}, function(results, status) {
 					if (status == 'OK') {
-						drawProximityCircle(results[0].geometry.location, 5000);
+						var radiusInMetres = parseFloat($( "#slider" ).slider( "value" ))*1609.34;
+						var latLng=[results[0].geometry.location.lat(), 
+									results[0].geometry.location.lng()]
+						drawProximityCircle(latLng, radiusInMetres);
 					} else {
 						alert('Geocode was not successful for the following reason: ' + status);
 					}
 				});
 			}
 
-			function drawProximityCircle(geoLoc, radius){
-				L.circle([geoLoc.lat(), geoLoc.lng()], radius).addTo(map);
+			function drawProximityCircle(latLng, radius){
+				if(searchZone){
+					map.removeLayer(searchZone);
+				}
+				searchZone = L.circle(latLng, 
+					radius,
+					{
+						color: 'black',
+						weight: 1,
+						fillColor: 'gray',
+						fillOpacity: 0.4
+					}).addTo(map);
+			}
+
+			function init_pageWidgets(){
+				$( "#slider" ).slider({
+					value:1,
+					min: 0.5,
+					max: 4,
+					step: 0.5,
+					change: function( event, ui ) {
+						$( "#radius" ).val(ui.value + " mi");
+						var radiusInMetres = parseFloat($( "#slider" ).slider( "value" ))*1609.34;
+						if(!searchZone) return;
+						drawProximityCircle(searchZone.getLatLng(), radiusInMetres);
+					}
+				});	
+				$( "#radius" ).val( $( "#slider" ).slider( "value" ) + " mi");
+			}
+
+			function init(){
+				init_googlemaps();
+				init_leafletJS();
+				init_pageWidgets();
 			}
 		</script>
 		
 	</head>
-	<body onload="init_leafletJS()">
+	<body onload="init()">
 		<h1>My Map</h1>
 
 		<table>
@@ -82,8 +122,15 @@
 				<td>
 					<div>
 						<input id="address" type="textbox" value="inner harbor">
-						<input type="button" value="Encode" onclick="codeAddress()">
+						<input type="button" value="Search" onclick="codeAddress()">
 					</div>
+					
+					<p>
+					<label for="radius">Search Radius: </label>
+					<input type="text" id="radius" readonly style="border:0; color:#f6931f; font-weight:bold;">
+					<div id="slider"></div>
+					
+					</p>
 				</td>
 			</tr>
 
