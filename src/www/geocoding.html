@@ -20,11 +20,15 @@
         var address = document.getElementById('address').value;
         geocoder.geocode( { 'address': address}, function(results, status) {
           if (status == 'OK') {
-            alert(results[0].geometry.location);
+            drawProximityCircle(results[0].geometry.location, 10);
           } else {
             alert('Geocode was not successful for the following reason: ' + status);
           }
         });
+      }
+
+      function drawProximityCircle(geoLoc, radius){
+        L.circle(geoLoc, radius).addTo(map);
       }
     
     </script>
