@@ -10,6 +10,8 @@
 		<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 		<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
 
+		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.8.0/d3.min.js"></script>
+
 		<link rel="stylesheet" type="text/css" href="leafletJS/leaflet.css">
 		<script type="text/javascript" src="leafletJS/leaflet.js"></script>
 		<script type="text/javascript" src="js/Bing.js"></script>
@@ -19,15 +21,18 @@
     		async defer></script> 
     		<!-- &callback=initialize -->
 		<style type="text/css">
-			#map { height: 600px;
+			#map { height: 700px;
 				width:600px;}
 		</style>
 		<script>
 			var map;
 			var geocoder;
 			var searchZone=null;
+			var COLORS = ['#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd','#ccebc5','#ffed6f'];
 
 			function init_leafletJS(){
+				// var clusterCount = getClusterRange();
+
 				map = L.map('map').setView([43.8476, 18.3564], 20);
 
 				var cluster2014Layer = L.geoJson(cluster2014, {
@@ -45,12 +50,32 @@
 						layer.on('click', function(e) {
 							alert('CSA2010 : '+feature.properties['CSA2010']);
 						});
+					},
+					style: function(feature){
+						return ({
+							color: 'black',
+							weight: 1,
+							fillColor: COLORS[feature.properties["CLUSTERS_2"]],
+							fillOpacity: 0.6
+						});
 					}
 				}).addTo(map);
 				map.fitBounds(cluster2014Layer.getBounds());
 
 				var bing = new L.BingLayer('Akv9ficRNA2M5yO3irycn60_uQ3Be5QGmspmNBxrNn7I-R6gR7Hm_b9bN6gdAb0O');
                 map.addLayer(bing);
+			}
+
+			function getClusterRange(){
+				var clusters = [];
+
+				for (neighborhood of cluster2014.features){
+					clusters.push(neighborhood.properties["CLUSTERS_2"]);
+				}
+
+				clusters = new Set(clusters);
+				numClusters = clusters.size;
+				return numClusters;
 			}
 
 			function init_googlemaps() {
@@ -81,7 +106,10 @@
 						weight: 1,
 						fillColor: 'gray',
 						fillOpacity: 0.4
-					}).addTo(map);
+					});
+				
+				searchZone.addTo(map);
+				searchZone.bringToBack();
 			}
 
 			function init_pageWidgets(){
@@ -111,7 +139,7 @@
 		
 	</head>
 	<body onload="init()">
-		<h1>My Map</h1>
+		<!-- <h1>My Map</h1> -->
 
 		<table>
 			<tr>
