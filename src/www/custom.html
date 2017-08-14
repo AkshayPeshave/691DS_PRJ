@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+        MyMap
+    </title>
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.8.0/d3.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/q.js/1.5.0/q.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="leafletJS/leaflet.css">
+    <link rel="stylesheet" type="text/css" href="css/custom.css">
+    <script type="text/javascript" src="leafletJS/leaflet.js"></script>
+    <script type="text/javascript" src="js/Bing.js"></script>
+    <script type="text/javascript" src="js/tsne.js"></script>
+    <script type="text/javascript" src="js/bootstrap3-typeahead.min.js"></script>
+    <script type="text/javascript" src="js/neighborhood_analytics.js"></script>
+    <script src="data/countries.geojson"></script>
+    <script src="data/cluster2014.geojson"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKMcKR4SlDQ4UaSKNUxQad1NHcIMTY3n0" async defer></script>
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <!-- &callback=initialize -->
+    <style type="text/css">
+    #map {
+        height: 700px;
+        width: 600px;
+    }
+    </style>
+    <script>
+    var pageData = [];
+
+    function init() {
+        $.get('./data/CSA2010.txt', function(data) {
+            var neighborhoods = data.split('\n');
+            $("#neighborhood_search_box").typeahead({ source: neighborhoods });
+        }, 'text');
+        $.get('./data/VS_categories.txt', function(data) {
+            var vsCategories = data.split('\n');
+            for (cat of vsCategories) {
+                $('#vs_cat_list').append(`<label class="btn btn-default">
+                        <input type="checkbox" >` + cat + `</label>`);
+            }
+        }, 'text');
+
+    }
+
+    function plot_neighborhoods() {
+        analyzeNeighborhoodsByCategoryIndices()
+            .then(function(data) {
+                $('#neighborhood_scatterplot').empty();
+                pageData = data;
+                var trace = {
+                    x: data['embeddings'].map(function(value, index) { return value[0]; }),
+                    // y: data['embeddings'].map(function(value, index) { return value[1]; }),
+                    y:Array(52).fill(1),
+                    mode: 'markers',
+                    type: 'scatter',
+                    text: Object.keys(data['vsCatIndices']).sort(),
+                    xaxis: 'x',
+                    yaxis: 'y',
+                };
+
+                var graphDiv = document.getElementById('neighborhood_scatterplot');
+
+                Plotly.newPlot(graphDiv, [trace], {
+                    dragmode: 'lasso'
+                });
+
+
+                graphDiv.on('plotly_selected', function(eventData) {
+                    var x = [];
+                    var y = [];
+
+                    var colors = [];
+                    // for (var i = 0; i < N; i++) colors.push(color1Light);
+
+                    compareNeighborhoods(
+                        eventData.points.map(function(value, index) {
+                            return value['text'];
+                        }), fillNhoodTable);
+                });
+            });
+        // console.log(x);
+    }
+
+    function fillNhoodTable(tableData) {
+        console.log(tableData);
+        $('#nhood_table_container').empty();
+        var nhoodTbl = $('<table>');
+        nhoodTbl.attr('id', 'nhood_table');
+        var row = $('<tr>'),
+            cell = $('<th>');
+        cell.text('Neighborhood');
+        row.append(cell);
+        for (cat of pageData['categories']) {
+            cell = $('<th>');
+            cell.text(cat);
+            row.append(cell);
+        }
+        nhoodTbl.append(row);
+        for (nhood of Object.keys(tableData)) {
+            row = $('<tr>');
+            cell = $('<th>');
+            cell.text(nhood);
+            row.append(cell);
+            for (colVal of tableData[nhood]) {
+                cell = $('<td>');
+                cell.text(colVal);
+                row.append(cell);
+            }
+            nhoodTbl.append(row);
+        }
+        $('#nhood_table_container').append(nhoodTbl);
+    }
+    </script>
+</head>
+
+<body onload="init()">
+    <!-- <h1>My Map</h1> -->
+    <table id="headerTbl">
+        <tr>
+            <td>
+                <input id="neighborhood_search_box" type="text" data-provide="typeahead">
+            </td>
+        </tr>
+        <tr>
+            <td class='left-pane'>
+                <div id="vs_cat_list" class="btn-group" data-toggle="buttons">
+                </div>
+                <div style="display: inline-block;">
+                    <label class="btn btn-primary" onclick="plot_neighborhoods()">
+                        GO </label>
+                </div>
+            </td>
+        </tr>
+    </table>
+    <div id="neighborhood_scatterplot"></div>
+    <div id='nhood_table_container'>
+    </div>
+</body>
+
+</html>
