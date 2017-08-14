@@ -11,15 +11,16 @@
 		<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
 
 		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.8.0/d3.min.js"></script>
-
 		<link rel="stylesheet" type="text/css" href="leafletJS/leaflet.css">
+		<link rel="stylesheet" type="text/css" href="css/index.css">
 		<script type="text/javascript" src="leafletJS/leaflet.js"></script>
 		<script type="text/javascript" src="js/Bing.js"></script>
 		<script src="data/countries.geojson"></script>
 		<script src="data/cluster2014.geojson"></script>
 		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKMcKR4SlDQ4UaSKNUxQad1NHcIMTY3n0"
-    		async defer></script> 
-    		<!-- &callback=initialize -->
+		async defer></script>
+		<script type="text/javascript" src="js/plotly.min.js"></script>
+		<!-- &callback=initialize -->
 		<style type="text/css">
 			#map { height: 700px;
 				width:600px;}
@@ -27,57 +28,77 @@
 		<script>
 			var map;
 			var geocoder;
-			var searchZone=null;
+			var searchZone=null, marker=null;
+			var typology=null, vitals=null;
+			var cluster2014Layer=null;
+			var compareList = [];
 			var COLORS = ['#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd','#ccebc5','#ffed6f'];
-
 			function init_leafletJS(){
 				// var clusterCount = getClusterRange();
-
 				map = L.map('map').setView([43.8476, 18.3564], 20);
+				renderNeighborhoods([]);
+				
+				var bing = new L.BingLayer('Akv9ficRNA2M5yO3irycn60_uQ3Be5QGmspmNBxrNn7I-R6gR7Hm_b9bN6gdAb0O');
+				map.addLayer(bing);
+			}
 
-				var cluster2014Layer = L.geoJson(cluster2014, {
+			function renderNeighborhoods(filterSet){
+				if (cluster2014Layer) map.removeLayer(cluster2014Layer);
+				var pricing=['$', '$$', '$$$', '$$$$', '$$$$$'];
+
+				var neighPricing = [];
+				for (neighborhood of typology){
+					neighPricing[neighborhood['Neighborhood']]=parseInt(neighborhood['2014'])-1
+				}
+				cluster2014Layer = L.geoJson(cluster2014, {
 					onEachFeature: function(feature, layer) {
-						layer.bindPopup(feature.properties['CSA2010']);
-
-						layer.on('mouseover', function(e) {
-							this.openPopup();
-						});
+						layer.bindPopup('<p><b>'+feature.properties['CSA2010']+'</b>'+
+							'    '+pricing[neighPricing[feature.properties['CSA2010']]]+'</p>')
+							// '<a href="#" onclick="addToCompareList(\''+feature.properties['CSA2010']+'\')">Compare</a>');
+						// layer.on('mouseover', function(e) {
+						// 	this.openPopup();
+						// });
 						
-						layer.on('mouseout', function(e) {
-							this.closePopup();
-						});
+						// layer.on('mouseout', function(e) {
+						// 	this.closePopup();
+						// });
 						
 						layer.on('click', function(e) {
-							alert('CSA2010 : '+feature.properties['CSA2010']);
+							this.openPopup();
+							displaySpecs(feature.properties['CSA2010']);
 						});
 					},
 					style: function(feature){
 						return ({
-							color: 'black',
+							color: 'gray',
 							weight: 1,
 							fillColor: COLORS[feature.properties["CLUSTERS_2"]],
-							fillOpacity: 0.6
+							fillOpacity: 0.7
 						});
+					},
+					filter: function(feature, layer){
+						if (filterSet.length==0) return true;
+
+						if (filterSet.indexOf(feature.properties['CSA2010'])<0) return false;
+						else return true;
 					}
 				}).addTo(map);
 				map.fitBounds(cluster2014Layer.getBounds());
+			}
 
-				var bing = new L.BingLayer('Akv9ficRNA2M5yO3irycn60_uQ3Be5QGmspmNBxrNn7I-R6gR7Hm_b9bN6gdAb0O');
-                map.addLayer(bing);
+			function addToCompareList(neighborhood){
+				compareList.push(neighborhood);
 			}
 
 			function getClusterRange(){
 				var clusters = [];
-
 				for (neighborhood of cluster2014.features){
 					clusters.push(neighborhood.properties["CLUSTERS_2"]);
 				}
-
 				clusters = new Set(clusters);
 				numClusters = clusters.size;
 				return numClusters;
 			}
-
 			function init_googlemaps() {
 				geocoder = new google.maps.Geocoder();
 			}
@@ -86,20 +107,21 @@
 				geocoder.geocode( { 'address': address}, function(results, status) {
 					if (status == 'OK') {
 						var radiusInMetres = parseFloat($( "#slider" ).slider( "value" ))*1609.34;
-						var latLng=[results[0].geometry.location.lat(), 
+						var latLng=[results[0].geometry.location.lat(),
 									results[0].geometry.location.lng()]
+
 						drawProximityCircle(latLng, radiusInMetres);
 					} else {
 						alert('Geocode was not successful for the following reason: ' + status);
 					}
 				});
 			}
-
 			function drawProximityCircle(latLng, radius){
 				if(searchZone){
 					map.removeLayer(searchZone);
+					map.removeLayer(marker);
 				}
-				searchZone = L.circle(latLng, 
+				searchZone = L.circle(latLng,
 					radius,
 					{
 						color: 'black',
@@ -110,8 +132,10 @@
 				
 				searchZone.addTo(map);
 				searchZone.bringToBack();
-			}
 
+				marker = L.marker(latLng);
+				marker.addTo(map).bindPopup("Work Location");
+			}
 			function init_pageWidgets(){
 				$( "#slider" ).slider({
 					value:1,
@@ -126,43 +150,193 @@
 						if(!searchZone) return;
 						drawProximityCircle(searchZone.getLatLng(), radiusInMetres);
 					}
-				});	
+					});
 				$( "#radius" ).val( $( "#slider" ).slider( "value" ) + " mi");
+
+				$( "[type=checkbox]" ).checkboxradio();
+				$( "#typology-select" ).controlgroup();
+				$( "#typology-select").on( "change", filterByTypology );
+
+				d3.csv("data/Housing_Market_Typology_2010_2014.csv", function(data) {
+					typology=data;
+					
+				});
+
+				d3.csv("./data/Vitals_Aggregation_2014.csv", function(data) {
+					vitals=data;
+					computeVitalsStats();
+					init_leafletJS();
+				});
 			}
 
+			var means=[], medians=[], mins=[], maxs=[], mediums=[], partitions=[];
+			function computeVitalsStats(){
+				means=[];
+				for (vital of ['Economic and Workforce Development', 'Education', 'Health and Human Welfare']){
+					means[vital]=findMean(vital);
+				}
+
+				medians=[];
+				for (vital of ['Economic and Workforce Development', 'Education', 'Health and Human Welfare']){
+					medians[vital]=findMedian(vital);
+				}
+			}
+
+			function findMedian(vital) {
+				var m = vitals.map(function(v) {
+					return parseFloat(v[vital]);
+				}).sort(function(a, b) {
+					return a - b;
+				});
+				mins[vital]=m[0];
+				maxs[vital]=m[m.length-1];
+
+				var third = (maxs[vital]-mins[vital])/3;
+				mediums[vital]=[mins[vital]+third, maxs[vital]-third];
+
+
+				var median=0;
+				var middle = Math.floor((m.length - 1) / 2); // NB: operator precedence
+				if (m.length % 2) {
+					median= m[middle];
+				} else {
+					median=(m[middle] + m[middle + 1]) / 2.0;
+				}
+
+				// partitions=[];
+				partitions[vital]=[median-mins[vital],median,maxs[vital]-median];
+				return median;
+			}
+			function findMean(vital) {
+				var sum=0, mean=0;
+				for (n of vitals){
+					sum+=parseFloat(n[vital]);
+				}
+				return (sum/vitals.length);
+			}
+
+			function grading(neighborhood){
+				for(n of vitals){
+					if (n['Neighborhood']==neighborhood){
+						var grade=[];
+						for(vital in mins){
+							if(parseFloat(n[vital])<=partitions[vital][0])
+								grade[vital]='1';
+							else if(parseFloat(n[vital])<=partitions[vital][1])
+								grade[vital]='2';
+							else if(parseFloat(n[vital])<=partitions[vital][2])
+								grade[vital]='3';
+							else
+								grade[vital]='4';
+						}
+						return grade;
+					}
+
+
+					if (n['Neighborhood']==neighborhood){
+						var grade=[];
+						for(vital in mins){
+							if(parseFloat(n[vital])<=mediums[vital][0])
+								grade[vital]='LOW';
+							else if(parseFloat(n[vital])>mediums[vital][1])
+								grade[vital]='HIGH';
+							else
+								grade[vital]='MEDIUM';
+						}
+						return grade;
+					}
+				}
+			}
+
+			function displaySpecs(neighborhood){
+				var data = [];
+				for (vital of ['Economic and Workforce Development', 'Education', 'Health and Human Welfare']){
+					var trace={type:'box', name:vital, x:[]};
+					for(n of vitals){
+						trace['x'].push(parseFloat(n[vital]));
+					}
+					trace['x'].sort();
+					data.push(trace);
+				}
+
+				var layout = {
+					title: 'Horizontal Box Plot'
+				};
+
+				Plotly.newPlot('specs', data, layout);
+			}
+			
+
+			function filterByTypology(){
+				var typologyFilter = [];
+				for (sel of $( "[name='typology']:checked" )){
+					typologyFilter.push(sel.id.split('-')[1]);
+				}
+				// console.log(typologyFilter);
+				var filteredNeighborhoods=[];
+				for (row of typology){
+					if (typologyFilter.indexOf(row['2014'])>=0){
+						filteredNeighborhoods.push(row['Neighborhood']);
+					}
+				}
+				// console.log(filteredNeighborhoods);
+				renderNeighborhoods(filteredNeighborhoods);		
+			}
 			function init(){
-				init_googlemaps();
-				init_leafletJS();
 				init_pageWidgets();
+				init_googlemaps();
+				// init_leafletJS();
+				
 			}
 		</script>
 		
 	</head>
 	<body onload="init()">
 		<!-- <h1>My Map</h1> -->
-
 		<table>
 			<tr>
 				<td>
 					<div id="map"></div>
 				</td>
-				<td>
-					<div>
-						<input id="address" type="textbox" value="inner harbor">
-						<input type="button" value="Search" onclick="codeAddress()">
+				<td class='left-pane'>
+					<table>
+						<tr><td>
+							<div>
+								<input id="address" type="textbox" value="inner harbor">
+								<!-- <p style="display: inline-block;"> -->
+								<label for="radius">Radius: </label>
+								<input type="text" id="radius" readonly style="border:0; color:#f6931f; font-weight:bold; width: 40px">
+								<div id="slider" style="display: inline-block;"></div>
+							<!-- </p> -->
+								<input type="button" value="Plot Vicinity" onclick="codeAddress()" style="display: inline-block;">
+							</div>
+							
+							
+						</td></tr>
+						<tr><td>
+							<!-- <h2>Checkbox</h2> -->
+							<fieldset id="typology-select">
+								<legend>Median Price</legend>
+								<label for="checkbox-1">$</label>
+								<input type="checkbox" name="typology" id="checkbox-1">
+								<label for="checkbox-2">$$</label>
+								<input type="checkbox" name="typology" id="checkbox-2">
+								<label for="checkbox-3">$$$</label>
+								<input type="checkbox" name="typology" id="checkbox-3">
+								<label for="checkbox-4">$$$$</label>
+								<input type="checkbox" name="typology" id="checkbox-4">
+								<label for="checkbox-5">$$$$$</label>
+								<input type="checkbox" name="typology" id="checkbox-5">
+							</fieldset>
+						</td></tr>
+						
+					</table>
+					<div id="specs">
+						
 					</div>
-					
-					<p>
-					<label for="radius">Search Radius: </label>
-					<input type="text" id="radius" readonly style="border:0; color:#f6931f; font-weight:bold;">
-					<div id="slider"></div>
-					
-					</p>
 				</td>
 			</tr>
-
 		</table>
-
 		
 		
 		
