@@ -1,0 +1,12 @@
+#nhood_table {
+    border: 1pt solid #444444;
+}
+
+#nhood_table>>th {
+    padding: 5px;
+}
+
+#nhood_table>>td {
+    padding: 5px;
+    color: #666666;
+}
